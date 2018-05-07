@@ -1,25 +1,203 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+output: html_document
 ---
 
+        
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = FALSE)
+```
 
-## Loading and preprocessing the data
+#### Loading and preprocessing the data
+The data was loaded using by first using the download.file function and then after unzipping using read.csv.  
+
+1. Load the data (i.e. **<span style="color:red">read.csv()</span>**)  
+
+```{r get_raw, echo=TRUE,results='hide',message=FALSE,collapse=TRUE}
+        
+        library(data.table)
+        library(dplyr)
+        library(ggplot2)
+        ## Setup the working directory where the data is located
+        setwd("C:/Users/paddy/Documents/Coursera/Assignments/Reproducable Research/Week 2/Reproducible Research Course Project 1")
+        #setwd("C:/Users/paddy/Documents/Coursera/Data Science/Course Material/5. Reproducable Research/Assignments/Week 2/Reproducible Research Course Project 1")
+        ## Download the raw archive file from the web: 
+        fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+        download.file(fileUrl, destfile = "./repdata%2Fdata%2Factivity.zip")
+        dateDownloaded <- date()
+        dateDownloaded
+        unzip(zipfile = "./repdata%2Fdata%2Factivity.zip")
+```
+It is always good to take a brief look at the structure of the data. This was done via str and head functions.
+```{r read_data,results='markup'}
+        
+        ## Load the test data
+        data <- read.csv("./activity.csv")
+        ## Take a quick look at the data
+        str(data)
+        head(data)
+```
+
+2. Some small post processing of the data was carried out to facilitate later analysis.  
+```{r load_transform}
+        ## Load data into dplyr
+        data1 <- tbl_df(data)
+        rm(data)
+        data1$date<-as.Date(data1$date)
+        data1$interval<-as.factor(data1$interval)
+```
+
+  
+#### What is mean total number of steps taken per day?
+For the initial part of the analysis the dataset missing values were ignored.    
+  
+1. The data was grouped by date in order to calculate the total number of steps taken per day  
+```{r total_steps}
+        ## Load data into dplyr
+        daily_steps<- 
+                data1%>%
+                filter(!is.na(steps)) %>%
+                group_by(date) %>%
+                summarise(total_steps=sum(steps))
+```
+
+2. This can be seen in the histogram below showing the total number of steps taken each day
+```{r hist_steps}
+        ## Histogram of the total daily steps during the sample period
+        hist(daily_steps$total_steps,breaks = 5,xlab = "Total Daily Steps", main = "Total Steps per Day")
+        abline(v=median(daily_steps$total_steps),lty=3,lwd=2)
+        abline(v=mean(daily_steps$total_steps))
+```
+
+3. This the mean and median of the total number of steps taken per day during the sample perioed  
+```{r mean_steps}
+        mean(daily_steps$total_steps)
+        median(daily_steps$total_steps)
+```
+
+  
+#### What is the average daily activity pattern?
+    
+1. The time series plot (i.e. **<span style="color:red">type = "l"</span>**) below shows the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)  
+```{r mean_interval,}
+        ## Summarise data into average steps per 5-min interval
+        step_intervals<- 
+                data1%>%
+                filter(!is.na(steps)) %>%
+                group_by(interval) %>%
+                summarise(avg_steps=mean(steps))
+        ## max(step_intervals$interval)
+     summary (step_intervals)
+
+```
+
+```{r AvgNoStepInt}
+plot(step_intervals$interval, step_intervals$avg_steps, type="n", xlab="Interval",
+     ylab="Average Steps per 5-min across full monitoring period" )
+lines(step_intervals$interval, step_intervals$avg_steps, type="l",col="blue" )
+title("Average Steps(per 5-min across full monitoring period)")
+```
 
 
 
-## What is mean total number of steps taken per day?
+2. We ca see that interval 835 contains the maximum number of steps (206) on average across all the days in the dataset.  
+```{r}
+        head(arrange(step_intervals, desc(avg_steps)),1)
+```
+  
+#### Inputing missing values
+
+
+1. The total number of rows with missing values (coded as NA) is shown below.   
+```{r count_NAs}
+        sum(!complete.cases(data1)) 
+        #To view which rows have missing data
+        # data1[!complete.cases(data1), ]
+```
 
 
 
-## What is the average daily activity pattern?
+2. The missing values in the dataset are filled by simply using the mean value for that 5-minute interval. A new dataframe data2 is then created which has these filled values. 
+```{r impute_missing}
+        ##clean_data2 <- subset(data1, !is.na(data1$steps))
+        data2<-data1
+        na_steps<-is.na(data1$steps)
+        clean_data<-data1[complete.cases(data1),]
+        avg_inter <- tapply(clean_data$steps, clean_data$interval, mean, na.rm=TRUE, simplify=T)
+        data2$steps[na_steps] <- avg_inter[as.character(data2$interval[na_steps])]
+        
+```
 
 
+3. The first few rows of this new dataset (data2) can be seen here. This can be compared with the original dataset (data1) were is contained missing data in these same rows. The summary function for data2 doesn't show any NAs.
+```{r filled_dataset ,collapse=TRUE}
+        head(data1)
+        head(data2)
+        summary(data2)
+```
+        
+4. The new dataset is again grouped by date to show the total daily steps.
+```{r NewTotalSteps,message=FALSE}
+       library(dplyr)
+         ## Load data into dplyr
+        NewDailySteps<- 
+                data2%>%
+                group_by(date) %>%
+                summarise(total_steps=sum(steps))
+        head(NewDailySteps)
+```
+Below is an updated histogram from the filled in dataset of the total number of steps taken each day. 
+```{r hist_DailyStep_filled, echo=FALSE}
+        ## Histogram of the total daily steps during the sample period
+        hist(NewDailySteps$total_steps,breaks = 5,xlab = "Total Daily Steps", main = "Total Steps per Day")
+        abline(v=median(NewDailySteps$total_steps),lty=3,lwd=2)
+        abline(v=mean(NewDailySteps$total_steps))
+```
 
-## Imputing missing values
+It can be seen that there is no change to the mean and only minor change to the median total number of steps when using the imputed dataframe.
+Using the mean interval values for imputing the missing data resulted in an increase of samples around the mean value.
+```{r}
+        mean(NewDailySteps$total_steps)
+        median(NewDailySteps$total_steps)
+```
 
+  
+#### Are there differences in activity patterns between weekdays and weekends?
+A comparison was made of the weekday vs. weekend step activity.
 
+The weekdays() function was used to flag each row into its relevant group.
 
-## Are there differences in activity patterns between weekdays and weekends?
+1. A new factor variable weekeday was added to a copy of the filled dataset with two levels – “weekday” and “weekend” becoming data3. This indicated whether a given date is a weekday or weekend day.
+```{r}
+        class(data2$date)
+        data2$date<-as.Date(data2$date)
+        #class(data2$date)
+        #weekdays(data2$date)
+        
+        data3<-
+                data2%>%
+                mutate(day=weekdays(data2$date))%>%
+                mutate(weekday=ifelse(day=="Saturday" | day=="Sunday", "Weekend", "Weekday"))%>%
+                group_by(interval,weekday)%>%
+                summarise(W_avg_steps=mean(steps))
+        data3$weekday<-as.factor(data3$weekday)
+        head(data3)
+        
+```
+
+2. The panel plot below compares the weekday days vs. the weekend days. 
+```{r panel_plot}
+  ##Plot of the summarised data 
+        library(lattice)
+        xyplot(W_avg_steps ~ interval | factor(weekday),
+               layout = c(1, 2),
+               xlab="Interval",
+               ylab="Average number of steps per 5-min interval",
+               type="l",
+               lty=1,
+               scales=list(x=list(at=seq(0,300,50), limits=c(0,300))),
+               data=data3
+               )
+```
+
+From this data there was more activity on the weekend days.
