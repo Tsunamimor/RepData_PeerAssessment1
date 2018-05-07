@@ -1,3 +1,5 @@
+### PLEASE NOTE: Download PA1_template.html file to be able to view it!!! 
+
 ## Introduction
 
 It is now possible to collect a large amount of data about personal
